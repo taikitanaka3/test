@@ -28,28 +28,16 @@
       margin: 0 0 16px;
     }
 
-    .header {
-      margin-bottom: 32px;
-    }
-
     .question {
       margin-bottom: 24px;
       padding: 16px;
       background: #ffffff;
       border-radius: 8px;
       border: 1px solid #e5e7eb;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    }
-
-    .options {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
     }
 
     button {
-      margin: 0;
+      margin: 6px 6px 0 0;
       padding: 10px 16px;
       border-radius: 6px;
       border: 1px solid #cbd5f5;
@@ -69,71 +57,27 @@
       background: #e5e7eb;
       color: #94a3b8;
       cursor: default;
-      transform: none;
-    }
-
-    .action-row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .primary {
-      background: #38bdf8;
-      color: #0f172a;
-      border-color: transparent;
-    }
-
-    .primary:hover {
-      background: #7dd3fc;
-    }
-
-    .secondary {
-      background: #e2e8f0;
-      color: #0f172a;
-      border-color: #cbd5f5;
     }
 
     #result {
-      margin-top: 32px;
+      margin-top: 40px;
       padding: 24px;
       background: #ffffff;
       border-radius: 12px;
       border: 2px solid #38bdf8;
       display: none;
     }
-
-    .status {
-      font-weight: 600;
-      color: #0f172a;
-    }
-
-    .note {
-      font-size: 0.9rem;
-      color: #64748b;
-      margin-top: 8px;
-    }
   </style>
 </head>
 <body>
-  <header class="header">
-    <h1>エンジニアタイプ診断</h1>
-    <p>直感で選んでください。正解はありません。</p>
-    <p class="status" id="progress">0 / 5 問回答済み</p>
-  </header>
+  <h1>エンジニアタイプ診断</h1>
+  <p>直感で選んでください。正解はありません。</p>
 
-  <main>
-    <div id="questions"></div>
+  <div id="questions"></div>
 
-    <div class="action-row">
-      <button class="primary" id="resultButton" type="button">結果を見る</button>
-      <button class="secondary" id="resetButton" type="button">もう一度診断する</button>
-    </div>
+  <button id="resultButton" type="button">結果を見る</button>
 
-    <div id="result"></div>
-    <p class="note">※ 結果は入力内容をもとに簡易的に算出しています。</p>
-  </main>
+  <div id="result"></div>
 
   <script>
     const axes = {
@@ -196,24 +140,9 @@
       "Edge AI Acceleration Engineer": { runtime: 3, build: 1 }
     };
 
-    const answers = new Array(questions.length).fill(null);
-
-    const progress = document.getElementById("progress");
+    const answers = new Array(questions.length).fill(false);
     const resultButton = document.getElementById("resultButton");
-    const resetButton = document.getElementById("resetButton");
     const result = document.getElementById("result");
-
-    function updateProgress() {
-      const answered = answers.filter(Boolean).length;
-      progress.textContent = `${answered} / ${questions.length} 問回答済み`;
-      resultButton.disabled = answered !== questions.length;
-    }
-
-    function resetAxes() {
-      Object.keys(axes).forEach(key => {
-        axes[key] = 0;
-      });
-    }
 
     function renderQuestions() {
       const container = document.getElementById("questions");
@@ -227,38 +156,40 @@
         title.textContent = `Q${index + 1}. ${question.text}`;
         card.appendChild(title);
 
-        const options = document.createElement("div");
-        options.className = "options";
-
         question.options.forEach(option => {
           const button = document.createElement("button");
           button.type = "button";
           button.textContent = option.label;
-          button.addEventListener("click", () => selectOption(index, option, options));
-          options.appendChild(button);
+          button.addEventListener("click", () => selectOption(index, option, card));
+          card.appendChild(button);
         });
 
-        card.appendChild(options);
         container.appendChild(card);
       });
     }
 
-    function selectOption(questionIndex, option, optionsContainer) {
-      if (answers[questionIndex]) return;
+    function selectOption(questionIndex, option, card) {
+      if (answers[questionIndex]) {
+        return;
+      }
 
-      answers[questionIndex] = option;
+      answers[questionIndex] = true;
       Object.entries(option.score).forEach(([key, value]) => {
         axes[key] += value;
       });
 
-      [...optionsContainer.children].forEach(button => {
+      Array.from(card.querySelectorAll("button")).forEach(button => {
         button.disabled = true;
       });
-
-      updateProgress();
     }
 
     function showResult() {
+      const unanswered = answers.some(answered => !answered);
+      if (unanswered) {
+        window.alert("すべての質問に回答してください。");
+        return;
+      }
+
       const scoredRoles = Object.entries(roleProfiles).map(([role, profile]) => {
         const score = Object.entries(profile).reduce((total, [key, weight]) => {
           return total + (axes[key] || 0) * weight;
@@ -268,35 +199,18 @@
 
       scoredRoles.sort((a, b) => b.score - a.score);
       const [best] = scoredRoles;
-      const topThree = scoredRoles.slice(0, 3);
 
       result.style.display = "block";
       result.innerHTML = `
         <h2>あなたのタイプ</h2>
         <h1>${best.role}</h1>
         <p>あなたはこの職種の特性と最も近い思考・行動パターンを持っています。</p>
-        <h2>相性が高い職種</h2>
-        <ol>
-          ${topThree.map(item => `<li>${item.role}</li>`).join("")}
-        </ol>
       `;
-
-      result.scrollIntoView({ behavior: "smooth" });
-    }
-
-    function resetAll() {
-      resetAxes();
-      answers.fill(null);
-      result.style.display = "none";
-      renderQuestions();
-      updateProgress();
     }
 
     resultButton.addEventListener("click", showResult);
-    resetButton.addEventListener("click", resetAll);
 
     renderQuestions();
-    updateProgress();
   </script>
 </body>
 </html>
